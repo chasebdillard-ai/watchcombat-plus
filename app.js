@@ -334,32 +334,60 @@
       sub: live ? "On the air now on WatchCOMBAT+ Live. Jump in where everyone else is." : day + " at " + tm + " on WatchCOMBAT+ Live. One event, one night, everyone watching together.",
       btn: live ? "Watch Live" : "Tune In" };
   }
+  function eotnP(e) { return (window.EOTN_POSTER || {})[e[1]] || {}; }
+  function eotnSub(e, x) { var P = eotnP(e); return (P.s ? P.s + " \u00b7 " : "") + x.sub; }
   function eotnCard() {
     var e = eotnNext(); if (!e) return "";
-    var x = eotnText(e), mr = "https://i.ytimg.com/vi/" + e[1] + "/maxresdefault.jpg", hq = "https://i.ytimg.com/vi/" + e[1] + "/hqdefault.jpg";
-    return '<button class="eotn' + (x.live ? " is-live" : "") + '" type="button" data-eotn="1" id="eotn-card"><img src="' + mr + '" onerror="this.onerror=null;this.src=\'' + hq + '\'" alt="" />' +
-      '<span class="eotn__in"><small>Event of the Night</small><strong>' + esc(e[2]) + '</strong><em data-eo="when">' + esc(x.when) + '</em><span data-eo="sub">' + esc(x.sub) + '</span><b data-eo="btn">' + PLAY + " " + x.btn + "</b></span></button>";
+    var x = eotnText(e), P = eotnP(e), mr = "https://i.ytimg.com/vi/" + e[1] + "/maxresdefault.jpg", hq = "https://i.ytimg.com/vi/" + e[1] + "/hqdefault.jpg";
+    return '<button class="eotn' + (x.live ? " is-live" : "") + '" type="button" data-eotn="1" id="eotn-card" data-eid="' + esc(e[1]) + '"><img src="' + mr + '" onerror="this.onerror=null;this.src=\'' + hq + '\'" onload="if(this.naturalWidth&&this.naturalWidth<=120){this.onload=null;this.src=\'' + hq + '\'}" alt="" />' +
+      '<span class="eotn__in"><small>Event of the Night</small><strong>' + esc(P.t || e[2]) + '</strong><em data-eo="when">' + esc(x.when) + '</em><span data-eo="sub">' + esc(eotnSub(e, x)) + '</span><b data-eo="btn">' + PLAY + " " + x.btn + "</b></span></button>";
   }
-  // EOTN:next, "Coming <weekday>" card: the first pick on the next distinct ET night after the one eotnCard shows
-  function eotnNextNight() {
-    var L = window.EOTN_EVENTS || [], c = eotnNext(); if (!c) return null;
-    try { var dk = function (x) { return new Date(x * 1000).toLocaleDateString("en-US", { timeZone: "America/New_York" }); }; for (var i = 0; i < L.length; i++) if (L[i][0] > c[0] && dk(L[i][0]) !== dk(c[0])) return L[i]; } catch (x) {}
-    return null;
+  // EOTN:next, "Coming <weekday>" cards: the first pick on each later distinct ET night after the one eotnCard shows (data-driven, up to 2 nights)
+  function eotnNextNights(max) {
+    var L = window.EOTN_EVENTS || [], c = eotnNext(), out = []; if (!c) return out;
+    try { var dk = function (x) { return new Date(x * 1000).toLocaleDateString("en-US", { timeZone: "America/New_York" }); }, seen = {}; seen[dk(c[0])] = 1;
+      for (var i = 0; i < L.length && out.length < (max || 2); i++) if (L[i][0] > c[0] && !seen[dk(L[i][0])]) { seen[dk(L[i][0])] = 1; out.push(L[i]); } } catch (x) {}
+    return out;
   }
-  function eotnNextCard() {
-    var e = eotnNextNight(); if (!e) return "";
-    var P = (window.EOTN_POSTER || {})[e[1]] || {}, t = Date.now() / 1000, wd = "", tm = "9:00 PM ET";
+  function eotnNextNight() { return eotnNextNights(1)[0] || null; }
+  function eotnNextCard(e, k) {
+    e = e || eotnNextNight(); if (!e) return "";
+    var P = eotnP(e), t = Date.now() / 1000, wd = "", tm = "9:00 PM ET";
     try {
-      wd = new Date(e[0] * 1000).toLocaleDateString("en-US", { weekday: "long", timeZone: "America/New_York" });
+      var f = function (x) { return new Date(x * 1000).toLocaleDateString("en-US", { timeZone: "America/New_York" }); };
+      wd = f(e[0]) === f(t + 86400) ? "Tomorrow" : new Date(e[0] * 1000).toLocaleDateString("en-US", { weekday: "long", timeZone: "America/New_York" });
       if (e[0] - t > 6 * 86400) wd += " " + new Date(e[0] * 1000).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "America/New_York" });
       tm = new Date(e[0] * 1000).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: "America/New_York" }) + " ET";
     } catch (x) {}
     var ti = P.t || String(e[2]).replace(/\s+\u00b7\s+Part\s.*$/, ""), mr = "https://i.ytimg.com/vi/" + e[1] + "/maxresdefault.jpg", hq = "https://i.ytimg.com/vi/" + e[1] + "/hqdefault.jpg";
-    return '<button class="eotn eotn--next" type="button" data-eotn="1" id="eotn-next-card" data-eid="' + esc(e[1]) + '"><img src="' + mr + '" onerror="this.onerror=null;this.src=\'' + hq + '\'" onload="if(this.naturalWidth&&this.naturalWidth<=120){this.onload=null;this.src=\'' + hq + '\'}" alt="" />' +
-      '<span class="eotn__in"><small>Coming ' + esc(wd) + ' \u00b7 Event of the Night</small><strong>' + esc(ti) + '</strong><em>' + esc(wd + " \u00b7 " + tm) + '</em><span data-eo="sub">' + esc((P.s ? P.s + ". " : "") + wd + " at " + tm + " on WatchCOMBAT+ Live, channel 5.") + '</span><b>' + PLAY + " Tune In</b></span></button>";
+    return '<button class="eotn eotn--next" type="button" data-eotn="1" id="eotn-next-card' + (k ? "-" + k : "") + '" data-eid="' + esc(e[1]) + '"><img src="' + mr + '" onerror="this.onerror=null;this.src=\'' + hq + '\'" onload="if(this.naturalWidth&&this.naturalWidth<=120){this.onload=null;this.src=\'' + hq + '\'}" alt="" />' +
+      '<span class="eotn__in"><small>Coming ' + esc(wd) + ' \u00b7 ' + esc(tm.replace(":00 ", " ")) + '</small><strong>' + esc(ti) + '</strong><em>' + esc(wd + " \u00b7 " + tm) + '</em><span data-eo="sub">' + esc((P.s ? P.s + " \u00b7 " : "") + wd + " at " + tm + " on WatchCOMBAT+ Live, channel 5.") + '</span><b>' + PLAY + " Tune In</b></span></button>";
   }
-  setInterval(function () { var c = doc.getElementById("eotn-next-card"), e = eotnNextNight(); if (c && (!e || e[1] !== c.dataset.eid)) c.remove(); }, 30000);
-  setInterval(function () { var c = doc.getElementById("eotn-card"), e = eotnNext(); if (!c) return; if (!e) { c.remove(); return; } var x = eotnText(e); c.classList.toggle("is-live", x.live); c.querySelector('[data-eo="when"]').textContent = x.when; c.querySelector('[data-eo="sub"]').textContent = x.sub; c.querySelector('[data-eo="btn"]').innerHTML = PLAY + " " + x.btn; }, 30000);
+  // EOTN carousel on Home: tonight's/next card + the following nights' picks, swipeable (scroll-snap), dots, 7 s auto-advance (paused on touch/hover/focus)
+  function eotnKey() { var c = eotnNext(); return (c ? c[1] : "") + "|" + eotnNextNights(2).map(function (e) { return e[1]; }).join(","); }
+  function eotnCarousel() {
+    var cards = [eotnCard()].concat(eotnNextNights(2).map(function (e, k) { return eotnNextCard(e, k); })).filter(Boolean);
+    if (!cards.length) return "";
+    return '<section class="eocar" id="eocar" data-key="' + esc(eotnKey()) + '" aria-roledescription="carousel" aria-label="Event of the Night"><div class="eocar__track">' + cards.join("") + "</div>" +
+      (cards.length > 1 ? '<div class="eocar__dots">' + cards.map(function (_, k) { return '<span class="eocar__dot' + (k ? "" : " on") + '" data-eodot="' + k + '" aria-hidden="true"></span>'; }).join("") + "</div>" : "") + "</section>";
+  }
+  var EOC = { hold: 0, last: 0 };
+  function eocPos(tr, k) { return tr.children[k].offsetLeft - tr.children[0].offsetLeft; }
+  function eocIdx(tr) { var best = 0, d = 1e9; for (var k = 0; k < tr.children.length; k++) { var x = Math.abs(eocPos(tr, k) - tr.scrollLeft); if (x < d) { d = x; best = k; } } return best; }
+  function eocGo(k) { var c = doc.getElementById("eocar"); if (!c) return; var tr = c.querySelector(".eocar__track"), n = tr.children.length; if (!n) return; k = (k + n) % n; var to = eocPos(tr, k); try { tr.scrollTo({ left: to, behavior: "smooth" }); } catch (x) { tr.scrollLeft = to; } setTimeout(function () { if (Math.abs(tr.scrollLeft - to) > 4) tr.scrollTo({ left: to, behavior: "auto" }); }, 900); }
+  function eocInit() {
+    var c = doc.getElementById("eocar"); if (!c || c.dataset.init) return; c.dataset.init = 1;
+    var tr = c.querySelector(".eocar__track");
+    tr.addEventListener("scroll", function () { var k = eocIdx(tr); c.querySelectorAll(".eocar__dot").forEach(function (d, j) { d.classList.toggle("on", j === k); }); }, { passive: true });
+    ["touchstart", "mouseenter", "focusin"].forEach(function (t) { c.addEventListener(t, function () { EOC.hold = 1; }, { passive: true }); });
+    ["mouseleave", "focusout"].forEach(function (t) { c.addEventListener(t, function () { EOC.hold = 0; }); });
+    c.addEventListener("touchend", function () { setTimeout(function () { EOC.hold = 0; }, 8000); }, { passive: true });
+  }
+  setInterval(function () { var c = doc.getElementById("eocar"); if (!c || EOC.hold || doc.hidden || Date.now() - EOC.last < 6500) return; var tr = c.querySelector(".eocar__track"); if (tr.children.length > 1) eocGo(eocIdx(tr) + 1); }, 7000);
+  doc.addEventListener("click", function (ev) { var d = ev.target.closest && ev.target.closest("[data-eodot]"); if (!d) return; ev.preventDefault(); ev.stopImmediatePropagation(); EOC.last = Date.now(); eocGo(+d.getAttribute("data-eodot")); }, true);
+  new MutationObserver(function () { if (doc.getElementById("eocar")) eocInit(); }).observe(doc.documentElement, { childList: true, subtree: true });
+  setInterval(function () { var c = doc.getElementById("eocar"); if (c && c.dataset.key !== eotnKey() && !(doc.activeElement && c.contains(doc.activeElement))) { var h = eotnCarousel(); if (h) c.outerHTML = h; else c.remove(); } }, 30000);
+  setInterval(function () { var c = doc.getElementById("eotn-card"), e = eotnNext(); if (!c) return; if (!e) { c.remove(); return; } if (c.dataset.eid !== e[1]) return; var x = eotnText(e); c.classList.toggle("is-live", x.live); c.querySelector('[data-eo="when"]').textContent = x.when; c.querySelector('[data-eo="sub"]').textContent = eotnSub(e, x); c.querySelector('[data-eo="btn"]').innerHTML = PLAY + " " + x.btn; }, 30000);
   doc.addEventListener("click", function (ev) { var b = ev.target.closest && ev.target.closest("[data-eotn]"); if (!b) return; ev.preventDefault(); ev.stopImmediatePropagation(); if (window.__lvOpen) window.__lvOpen("eotn"); else { try { localStorage.setItem("live_ch_ufc", "eotn"); } catch (x) {} var lb = doc.getElementById("live-btn"); if (lb) lb.click(); } }, true);
   function homeView() {
     var h = "", ln = latestEvent(), fe = byType.E, nEv = E.filter(function (e) { return e.v.length; }).length;
@@ -371,8 +399,7 @@
       '<div class="stats"><span class="stat"><b>' + n(V.length) + "</b> videos</span><span class=\"stat\"><b>" + n(byType.F.length) + "</b> " + (HUB.ff || "full fights").toLowerCase() + "</span><span class=\"stat\"><b>" + n(nEv) + "</b> events</span><span class=\"stat\">" + rangeStat() + "</span></div>" +
       feat + '<div class="btns">' + (ln ? '<button class="btn btn--red" type="button" data-play-ev="' + ln.i + '">' + PLAY + " Watch " + esc(ln.num ? HUB.numP + " " + ln.num : evShort(ln).a) + "</button>" : "") +
       '<a class="btn btn--ghost" href="#events">' + (HUB.numbered ? "Browse events" : "Browse seasons") + "</a></div></div></div>";
-    h += eotnCard();
-    h += eotnNextCard();
+    h += eotnCarousel();
     h += promoBar();
     h += cwRow();
     h += sec("Latest", rail(V.slice(0, 20)), "#t/all");

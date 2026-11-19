@@ -96,7 +96,7 @@
     rtStop(); ov.hidden = true; d.documentElement.style.overflow = ""; stop();
     if (location.hash === "#live") history.replaceState(null, "", location.pathname + location.search);
   }
-  function stop() { clearTimeout(timer); clearInterval(guideTimer); if (player && player.destroy) { try { player.destroy(); } catch (e) {} } player = null; }
+  function stop() { killHls(); clearTimeout(timer); clearInterval(guideTimer); if (player && player.destroy) { try { player.destroy(); } catch (e) {} } player = null; }
 
   function top(extra) {
     return '<div class="lv-top"><h2><span class="lv-badge">LIVE</span>' + esc(CFG.brand || "Live TV") + '</h2><div>' + (extra || "") + '<button class="lv-x" type="button" data-close>✕ Close</button></div></div>';
@@ -247,7 +247,7 @@
     ov.querySelector(".lv-wrap").style.setProperty("--c", cfg.color || "#d90429");
     ov.querySelector(".lv-bug").textContent = "● LIVE · " + (cfg.name || "");
     rtTrack(); counts();
-    if (DATA[ch] && DATA[ch].sched) { tuneSched(ch); return; } unslate(); // EOTN:tune
+    unhls(); if (cfg.hls) { tuneHls(ch, cfg); return; } if (DATA[ch] && DATA[ch].sched) { tuneSched(ch); return; } unslate(); // EOTN:tune
     var c = DATA[ch], t = nowS(), a = at(ch, t), idx = a.i, off = a.off, begin = a.begin;
     if (forceIdx != null) { idx = forceIdx % c.items.length; off = 0; begin = t; }
     var it = c.items[idx]; curIdx = idx;
@@ -274,6 +274,85 @@
   }
 
   // EOTN:sched, "Event of the Night": one scheduled event per night at 8 PM ET. Otherwise it shows a looping "Stay tuned" slate.
+  // RNTV:hls (2026-11-19) true live HLS channels (cfg.hls = [url, fallback...]). hls.js on Chrome/Firefox/Android/TV WebViews, native HLS on Apple.
+  var hls = null, hlsWd = null, hlsRetry = null;
+  function killHls() {
+    clearInterval(hlsWd); clearTimeout(hlsRetry); hlsWd = hlsRetry = null;
+    if (hls) { try { hls.destroy(); } catch (e) {} hls = null; }
+    var v = ov.querySelector(".lv-hlsbox video");
+    if (v) { try { v.onerror = null; v.pause(); v.removeAttribute("src"); v.load(); } catch (e) {} }
+  }
+  function unhls() {
+    killHls();
+    var sc = ov.querySelector(".lv-screen"); if (!sc) return;
+    var b = sc.querySelector(".lv-hlsbox"); if (!b) return;
+    b.parentNode.removeChild(b);
+    var p = sc.querySelector("#lv-player"); if (p) p.style.display = "";
+  }
+  function hlsLib() {
+    if (window.Hls) return Promise.resolve();
+    return new Promise(function (res, rej) {
+      var s = d.getElementById("hlsjs");
+      if (!s) { s = d.createElement("script"); s.id = "hlsjs"; s.src = "https://cdn.jsdelivr.net/npm/hls.js@1.5.17/dist/hls.min.js"; d.head.appendChild(s); }
+      s.addEventListener("load", function () { res(); }); s.addEventListener("error", function () { rej(); });
+      setTimeout(function () { if (window.Hls) res(); }, 50);
+    });
+  }
+  function tuneHls(ch, cfg) {
+    clearTimeout(timer); clearInterval(guideTimer); killHls();
+    var sc = ov.querySelector(".lv-screen"); if (!sc) return;
+    if (player && player.destroy) { try { player.destroy(); } catch (e) {} } player = null;
+    sc.querySelectorAll("#lv-player,.lv-slate,.lv-hlsbox").forEach(function (n) { n.parentNode.removeChild(n); });
+    var p = d.createElement("div"); p.id = "lv-player"; p.style.display = "none"; sc.appendChild(p);
+    var tv = d.documentElement.classList.contains("tv");
+    var box = d.createElement("div"); box.className = "lv-hlsbox";
+    box.innerHTML = '<video playsinline webkit-playsinline autoplay preload="auto"' + (tv ? "" : " controls") + "></video>" +
+      '<button type="button" class="lv-hls-snd" hidden>🔇 Tap for sound</button><p class="lv-hls-msg" hidden></p>';
+    sc.appendChild(box);
+    var v = box.querySelector("video"), snd = box.querySelector(".lv-hls-snd"), msg = box.querySelector(".lv-hls-msg");
+    snd.onclick = function () { v.muted = false; v.play().catch(function () {}); snd.hidden = true; };
+    var tt = ov.querySelector(".lv-title"); tt.textContent = cfg.title || cfg.name;
+    if (cfg.wordmark) tt.innerHTML = '<img class="lv-hls-wm" src="' + cfg.wordmark + '" alt="' + esc(cfg.name) + '"> <span>' + esc(cfg.subtitle || "Live broadcast") + "</span>";
+    var bar = ov.querySelector(".lv-bar i"); if (bar) bar.style.width = "100%";
+    ov.querySelector(".lv-guide").innerHTML = (cfg.about || []).map(function (x) { return "<li><b>" + esc(x[0]) + "</b><span>" + (x[2] ? '<a href="' + x[2] + '" target="_blank" rel="noopener">' + esc(x[1]) + "</a>" : esc(x[1])) + "</span></li>"; }).join("");
+    var srcs = cfg.hls.slice(), i = 0, medRec = 0, round = 0;
+    var ua = navigator.userAgent, apple = /iP(hone|ad|od)/.test(ua) || (/Safari\//.test(ua) && /Apple/.test(navigator.vendor || "") && !/Chrome|Chromium|CriOS|Android/.test(ua));
+    function go() { var q = v.play(); if (q && q.catch) q.catch(function () { v.muted = true; snd.hidden = false; v.play().catch(function () {}); }); }
+    function fail() {
+      if (cur !== ch) return;
+      killHls(); i++;
+      if (i < srcs.length) { play(); return; }
+      msg.hidden = false; msg.textContent = "The " + cfg.name + " feed isn't responding right now. Retrying…";
+      hlsRetry = setTimeout(function () { if (cur === ch) { i = 0; round++; play(); } }, Math.min(60, 15 * (round + 1)) * 1000);
+    }
+    function watch() { // a live feed that stops advancing for ~20s moves to the next source
+      var last = -1, still = 0;
+      hlsWd = setInterval(function () {
+        if (cur !== ch || v.paused) { still = 0; return; }
+        if (v.currentTime === last) { if (++still >= 2) fail(); } else { still = 0; last = v.currentTime; msg.hidden = true; }
+      }, 10000);
+    }
+    function play() {
+      if (cur !== ch) return;
+      msg.hidden = true; medRec = 0;
+      var u = srcs[i];
+      if (apple && v.canPlayType("application/vnd.apple.mpegurl")) { v.onerror = fail; v.src = u; go(); watch(); return; }
+      hlsLib().then(function () {
+        if (cur !== ch) return;
+        if (!window.Hls || !Hls.isSupported()) { if (v.canPlayType("application/vnd.apple.mpegurl")) { v.onerror = fail; v.src = u; go(); watch(); } else fail(); return; }
+        hls = new Hls({ liveSyncDurationCount: 3, manifestLoadingMaxRetry: 2, levelLoadingMaxRetry: 3, fragLoadingMaxRetry: 3 });
+        hls.on(Hls.Events.ERROR, function (e, data) {
+          if (!data.fatal) return;
+          if (data.type === Hls.ErrorTypes.MEDIA_ERROR && !medRec) { medRec = 1; try { hls.recoverMediaError(); } catch (x) { fail(); } return; }
+          fail();
+        });
+        hls.on(Hls.Events.MANIFEST_PARSED, go);
+        hls.loadSource(u); hls.attachMedia(v); watch();
+      }, function () { if (v.canPlayType("application/vnd.apple.mpegurl")) { v.onerror = fail; v.src = u; go(); watch(); } else { msg.hidden = false; msg.textContent = "Couldn't load the video player. Check your connection."; } });
+    }
+    play();
+  }
+  window.__lvHlsVideo = function () { return ov.querySelector(".lv-hlsbox video"); };
   function etTime(t) { try { return new Date(t * 1000).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: "America/New_York" }).replace(/ /g, "\u00a0") + "\u00a0ET"; } catch (e) { return fmtTime(t); } }
   function etDay(t) {
     try {

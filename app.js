@@ -286,6 +286,8 @@
       try { history.pushState({ sheet: 1 }, "", location.hash || "#home"); } catch (x) {}
       doc.getElementById("sheet-close").focus();
     }
+    // TV remote (WatchCOMBAT+ 2026-11-18): move the remote's focus ring onto the player so OK = play/pause and Back closes it
+    if (window.__tvnav && window.__tvnav.focus) setTimeout(function () { try { var fr = stage.querySelector("iframe"); if (fr && !sheet.hidden) window.__tvnav.focus(fr, false); } catch (x) {} }, 60);
     doc.getElementById("sheet-scroll").scrollTop = 0;
   }
   function closePlayer(fromPop) {

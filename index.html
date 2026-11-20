@@ -365,7 +365,15 @@ html.tv a[target=_blank]{display:none!important}
 .mig img{width:44px;height:44px;border-radius:9px;flex:none}.mig b{font-weight:800}.mig p{margin:0;flex:1}.mig code{background:#d9a93b;color:#140c00;padding:1px 6px;border-radius:4px;font:800 15px/1.4 var(--cond);letter-spacing:.06em}
 .mig button{flex:none;background:#e3141b;color:#fff;border:0;border-radius:6px;padding:10px 16px;font:800 14px/1 var(--cond);letter-spacing:.06em;text-transform:uppercase;cursor:pointer}
 html.tv .mig{top:24px;bottom:auto;width:min(760px,90vw);font-size:18px;padding:18px 22px}html.tv .mig img{width:64px;height:64px}html.tv .mig code{font-size:20px}html.tv .mig button{font-size:18px;padding:14px 22px}
+/* DONATE (2026-11-19, Cash App $WrestleWorldPlus; button styles + TV QR modal from donate.js): header pill on wider screens / TV, 6th tab on phones */
+.top__row .hkd-btn.hkd-hdr{min-height:36px;padding:4px 13px}.top__row .hkd-btn.hkd-hdr .hkd-s{display:none}
+@media(min-width:1100px){.top__row .hkd-btn.hkd-hdr .hkd-s{display:block}}
+@media(max-width:640px){html:not(.tv) .top__row .hkd-btn.hkd-hdr{display:none}}
+.tabs{grid-template-columns:repeat(6,1fr)}html.tv .tabs a.hkd-tab.hkd-btn{display:grid!important}
+.tabs a.hkd-tab{display:grid;place-items:center;align-content:center;gap:3px;background:none;border:0;border-radius:0;box-shadow:none;min-height:0;padding:0;color:var(--dim2)!important;font:700 12px var(--cond);letter-spacing:.06em;text-transform:uppercase;filter:none}
+.tabs a.hkd-tab .hkd-ic{width:24px;height:24px;border-radius:7px;font-size:16px;background:linear-gradient(180deg,#1fdb5f,#00b13a);color:#fff}
 </style>
+<script src="donate.js?v=20261119a"></script>
 <script>/* WatchCOMBAT+ (2026-11-18): TV detection + arrivals from the old WatchUFC address (redirect adds ?from=watchufc, stripped here; hash kept) */
 (function(){var d=document.documentElement,tv=!!window.TVNative||/\bAFT[A-Z0-9]|AndroidTV|Android TV|GoogleTV|BRAVIA|SMART-TV|Tizen|Web0S/i.test(navigator.userAgent);if(tv)d.classList.add("tv");
 if(/[?&]from=watchufc\b/.test(location.search)){window.__fromWatchUFC=1;try{history.replaceState(history.state,"",location.pathname+location.hash)}catch(e){}}})();</script>
@@ -378,6 +386,7 @@ if(/[?&]from=watchufc\b/.test(location.search)){window.__fromWatchUFC=1;try{hist
     <div class="top__row">
       <a class="brand" href="#home" data-hub="ufc" aria-label="WatchCOMBAT+ home"><img class="brand__logo" src="logo-header.png?v=4" alt="WatchCOMBAT+" width="352" height="32" /></a><a class="hubtag" id="hubtag" href="#home" data-hub="x" hidden></a>
       <button class="livebtn" id="live-btn" type="button" aria-label="Open WatchCOMBAT+ Live channels"><i aria-hidden="true"></i>LIVE</button>
+      <a class="hkd-btn hkd-hdr" href="https://cash.app/$WrestleWorldPlus" target="_blank" rel="noopener" aria-label="Donate: support us on Cash App, $WrestleWorldPlus"><span class="hkd-l"><span class="hkd-ic" aria-hidden="true">$</span>DONATE</span><span class="hkd-s">Support us on Cash App &middot; $WrestleWorldPlus</span></a>
       <button class="ibtn" id="search-btn" type="button" aria-label="Search" aria-expanded="false" aria-controls="search-row"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg></button>
     </div>
     <div class="search" id="search-row" role="search" hidden>
@@ -394,6 +403,7 @@ if(/[?&]from=watchufc\b/.test(location.search)){window.__fromWatchUFC=1;try{hist
   <a class="tab" href="#years" data-tab="years" data-h="#years"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>Years</a>
   <a class="tab" href="#t/F" data-tab="fights" data-h="#t/F"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><path d="M6 11V7a2 2 0 0 1 4 0v3m0-1V5a2 2 0 0 1 4 0v5m0-2a2 2 0 0 1 4 0v5c0 4-3 7-7 7h-1a6 6 0 0 1-5-3l-2-4a2 2 0 0 1 3-2l2 2"/></svg>Fights</a>
   <button class="tab tab--live" type="button" data-live="1"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="2" y="6" width="20" height="13" rx="2"/><path d="m8 2 4 4 4-4"/></svg>Live</button>
+  <a class="tab hkd-btn hkd-tab" href="https://cash.app/$WrestleWorldPlus" target="_blank" rel="noopener" aria-label="Donate: support us on Cash App, $WrestleWorldPlus"><span class="hkd-ic" aria-hidden="true">$</span>Donate</a>
 </nav>
 <div class="sheet" id="sheet" hidden role="dialog" aria-modal="true" aria-label="Player">
   <div class="sheet__top"><span class="wm"><img src="logo-header.png?v=4" alt="WatchCOMBAT+" style="height:24px;width:auto;max-width:60vw;object-fit:contain;display:block" /></span><button class="close" id="sheet-close" type="button">✕ Close</button></div>

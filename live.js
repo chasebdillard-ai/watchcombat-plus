@@ -2,6 +2,8 @@
 (function () {
   "use strict";
   var CFG = window.LIVE_CFG || {};
+  function lvPrune() { var t = Date.now() / 1000, n0 = (CFG.channels || []).length; CFG.channels = (CFG.channels || []).filter(function (c) { return !c.events || !c.events.length || c.events.some(function (e) { return t < e[0] + e[3]; }); }); if (CFG.channels.length < n0 && CFG.pitch_after) CFG.pitch = CFG.pitch_after; } // EOTN:retire
+  lvPrune();
   var SB = "https://cubbuiahnhgfpdeubldu.supabase.co", KEY = "sb_publishable_Sj8SNl5Zi0AwjxsIrNGNtQ_B--yHhYi", SKEY = "hvplus_session";
   var EPOCH = Date.UTC(2026, 10, 15, 5, 0, 0) / 1000; // Sun Nov 15 2026, 12:00 AM Eastern
   var PHONE_DOMAIN = "phone.blockbuster-plus.app";
@@ -211,7 +213,7 @@
 
   function renderLive() {
     stop();
-    var chs = CFG.channels || [];
+    lvPrune(); var chs = CFG.channels || [];
     var curCh = cur && chs.some(function (c) { return c.id === cur; }) ? cur : (localStorage.getItem("live_ch_" + (CFG.site || "")) || chs[0].id);
     if (!chs.some(function (c) { return c.id === curCh; })) curCh = chs[0].id;
     var email = session && session.user && session.user.email || "";
